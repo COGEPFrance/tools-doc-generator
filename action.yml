@@ -1,0 +1,33 @@
+name: "Generate Mermaid Service Diagrams"
+description: "Generate Mermaid diagrams from service.yaml"
+
+inputs:
+  service-file:
+    description: "Path to service.yaml"
+    required: false
+    default: service.yaml
+
+  output-dir:
+    description: "Directory for generated diagrams"
+    required: false
+    default: diagrams
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+
+    - name: Install dependencies
+      run: |
+        pip install pyyaml
+      shell: bash
+
+    - name: Generate diagrams
+      run: |
+        python ${{ github.action_path }}/generate_mermaid.py \
+          ${{ inputs.service-file }} \
+          ${{ inputs.output-dir }}
+      shell: bash
