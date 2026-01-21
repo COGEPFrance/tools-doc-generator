@@ -5,18 +5,27 @@ import yaml
 from pathlib import Path
 
 
+# --------------------------------------------------
+# Utils
+# --------------------------------------------------
+
 def load_service(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
-def write_diagram(output_dir: Path, name: str, content: str):
+def write_diagram(output_dir: Path, filename: str, content: str):
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / name).write_text(content.strip() + "\n", encoding="utf-8")
+    (output_dir / filename).write_text(content.strip() + "\n", encoding="utf-8")
+    print(f"Generated {output_dir / filename}")
+
+
+def node_id(value: str) -> str:
+    return value.replace(".", "_").replace("-", "_")
 
 
 # --------------------------------------------------
-# Diagram generators
+# Diagram 1 — Service / Interfaces
 # --------------------------------------------------
 
 def generate_service_diagram(svc: dict) -> str:
@@ -30,9 +39,9 @@ def generate_service_diagram(svc: dict) -> str:
 
     # API
     api = interfaces.get("api")
-    if api:
-        api_label = f'HTTP API<br/>{api["base_path"]}'
-        lines.append(f'    API["{api_label}"]')
+    if api and api.get("enabled"):
+        label = f'HTTP API<br/>{api["base_path"]}'
+        lines.append(f'    API["{label}"]')
         lines.append("    API --> MS")
 
     # CLI
@@ -44,25 +53,29 @@ def generate_service_diagram(svc: dict) -> str:
     # RabbitMQ
     rabbit = interfaces.get("rabbitmq")
     if rabbit and rabbit.get("enabled"):
-        consumes = rabbit.get("consumes", {}).get("commands", [])
-        publishes = rabbit.get("publishes", {}).get("events", [])
-
-        for c in consumes:
+        for c in rabbit.get("consumes", {}).get("commands", []):
             q = c["queue"]
-            lines.append(f'    {q.replace(".", "_")}([{q}])')
-            lines.append(f"    {q.replace('.', '_')} --> MS")
+            qid = node_id(q)
+            lines.append(f'    {qid}([{q}])')
+            lines.append(f"    {qid} --> MS")
 
-        for e in publishes:
+        for e in rabbit.get("publishes", {}).get("events", []):
             rk = e["routing_key"]
-            node = rk.replace(".", "_")
-            lines.append(f'    MS --> {node}["{rk}"]')
+            rid = node_id(rk)
+            lines.append(f'    MS --> {rid}["{rk}"]')
 
     return "\n".join(lines)
 
 
+# --------------------------------------------------
+# Diagram 2 — Architecture / Ports (Hexagonal)
+# --------------------------------------------------
+
 def generate_architecture_diagram(svc: dict) -> str:
-    arch = svc.get("architecture")
-    if not arch:
+    arch = svc.get("architecture", {})
+    ports = arch.get("ports")
+
+    if not ports:
         return "graph TB\n    MissingArchitecture[Architecture not defined]"
 
     lines = [
@@ -70,26 +83,25 @@ def generate_architecture_diagram(svc: dict) -> str:
         '    Core["Core<br/>Domain & Use Cases"]',
     ]
 
-    interfaces = arch.get("interfaces", {})
+    for port_name, direction in ports.items():
+        pid = node_id(port_name)
+        lines.append(f'    {pid}["{port_name}"]')
 
-    for name, cfg in interfaces.items():
-        node = name.capitalize()
-        lines.append(f'    {node}["{name}"]')
-
-        if isinstance(cfg, dict):
-            port = cfg.get("port")
-            if port == "input":
-                lines.append(f"    {node} --> Core")
-            elif port == "output":
-                lines.append(f"    Core --> {node}")
-        else:
-            lines.append(f"    {node} --> Core")
+        if direction == "input":
+            lines.append(f"    {pid} --> Core")
+        elif direction == "output":
+            lines.append(f"    Core --> {pid}")
 
     return "\n".join(lines)
 
 
+# --------------------------------------------------
+# Diagram 3 — Messaging (RabbitMQ)
+# --------------------------------------------------
+
 def generate_messaging_diagram(svc: dict) -> str:
     rabbit = svc.get("interfaces", {}).get("rabbitmq")
+
     if not rabbit or not rabbit.get("enabled"):
         return "graph TB\n    NoRabbitMQ[RabbitMQ disabled]"
 
@@ -98,19 +110,22 @@ def generate_messaging_diagram(svc: dict) -> str:
         '    MS["Service"]',
     ]
 
-    # Exchanges
     exchanges = {}
+    queues = {}
+
+    # Exchanges
     for ex in rabbit.get("exchanges", []):
-        ex_id = ex["name"].replace(".", "_")
-        exchanges[ex["name"]] = ex_id
-        lines.append(f'    {ex_id}["{ex["name"]}<br/>({ex["type"]})"]')
+        name = ex["name"]
+        eid = node_id(name)
+        exchanges[name] = eid
+        lines.append(f'    {eid}["{name}<br/>({ex["type"]})"]')
 
     # Queues
-    queues = {}
     for q in rabbit.get("queues", []):
-        q_id = q.replace(".", "_")
-        queues[q] = q_id
-        lines.append(f'    {q_id}([{q}])')
+        name = q["name"]
+        qid = node_id(name)
+        queues[name] = qid
+        lines.append(f'    {qid}([{name}])')
 
     # Consumes
     for c in rabbit.get("consumes", {}).get("commands", []):
@@ -132,6 +147,10 @@ def generate_messaging_diagram(svc: dict) -> str:
 # --------------------------------------------------
 
 def main():
+    if len(sys.argv) != 3:
+        print("Usage: generate_mermaid.py <service.yaml> <output_dir>")
+        sys.exit(1)
+
     service_file = Path(sys.argv[1])
     output_dir = Path(sys.argv[2])
 
