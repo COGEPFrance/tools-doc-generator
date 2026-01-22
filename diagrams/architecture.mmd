@@ -1,14 +1,12 @@
 graph TB
-    Core["Core"]
-    api["api"]
+    Core["Core<br/>ID: rekipe.ingredient<br/>rekipe-ingredient-service<br/>V1.0.1<br/>python 3.13"]
+    api["✓ api<br/>(fastapi)<br/>/ingredient/v1"]
     api --> Core
-    cli["cli"]
+    cli["✓ cli<br/>(shell)"]
     cli --> Core
-    rabbitmq_commands["rabbitmq.commands"]
-    rabbitmq_commands --> Core
-    rabbitmq_events["rabbitmq.events"]
-    Core --> rabbitmq_events
-    logger["logger"]
+    message["✓ message<br/>(rabbitmq)<br/>ingredient.exchange"]
+    message --> Core
+    logger["✓ logger<br/>(logging)"]
     Core --> logger
-    filesystem["filesystem"]
+    filesystem["✓ filesystem<br/>(local storage)<br/>assets/ingredients.csv"]
     Core --> filesystem
