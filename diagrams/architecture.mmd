@@ -1,0 +1,14 @@
+graph TB
+    Core["Core"]
+    api["api"]
+    api --> Core
+    cli["cli"]
+    cli --> Core
+    rabbitmq_commands["rabbitmq.commands"]
+    rabbitmq_commands --> Core
+    rabbitmq_events["rabbitmq.events"]
+    Core --> rabbitmq_events
+    logger["logger"]
+    Core --> logger
+    filesystem["filesystem"]
+    Core --> filesystem

@@ -1,0 +1,5 @@
+MERMAID_GRAPH_TYPE = "graph TB"
+MERMAID_MISSING_ARCHITECTURE_MSG = "Architecture not defined"
+MERMAID_NO_RABBITMQ_MSG = "RabbitMQ disabled"
+CORE_NODE_LABEL = "Core"
+SERVICE_NODE_LABEL = "Service"

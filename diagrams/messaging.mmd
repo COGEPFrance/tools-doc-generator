@@ -1,0 +1,9 @@
+graph TB
+    MS["Service"]
+    ingredient_exchange["ingredient.exchange<br/>(topic)"]
+    ingredient_commands_queue([ingredient.commands.queue])
+    ingredient_events_queue([ingredient.events.queue])
+    ingredient_dlq([ingredient.dlq])
+    ingredient_commands_queue --> MS
+    MS --> ingredient_exchange
+    MS --> ingredient_exchange

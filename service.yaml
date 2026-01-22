@@ -1,0 +1,123 @@
+service:
+  id: rekipe.ingredient
+  name: rekipe-ingredient-service
+  description: Microservice de gestion des ingrédients pour Rekipe
+  version: 1.0.1
+
+runtime:
+  language: python
+  version: "3.13"
+
+docker:
+  image: rekipe/ingredient-service
+  base_image: python:3.13-slim
+
+interfaces:
+  api:
+    enabled: true
+    framework: fastapi
+    base_path: /ingredient/v1
+    endpoints:
+      - method: POST
+        path: /
+        summary: Create ingredient
+        status_code: 201
+
+      - method: GET
+        path: /{name}
+        summary: Get ingredient by name
+        status_code: 200
+
+      - method: GET
+        path: /
+        summary: List all ingredients
+        status_code: 200
+
+      - method: GET
+        path: /health
+        summary: Health check
+        status_code: 200
+
+  cli:
+    enabled: true
+    commands:
+      - name: create
+      - name: get
+      - name: list
+
+  rabbitmq:
+    enabled: true
+
+    exchanges:
+      - name: ingredient.exchange
+        type: topic
+
+    queues:
+      - name: ingredient.commands.queue
+      - name: ingredient.events.queue
+      - name: ingredient.dlq
+
+    consumes:
+      commands:
+        - queue: ingredient.commands.queue
+          routing_key: ingredient.cmd.#
+          supports:
+            - ingredient.create
+            - ingredient.get
+            - ingredient.list
+
+    publishes:
+      events:
+        - name: ingredient.created
+          exchange: ingredient.exchange
+          routing_key: ingredient.evt.ingredient.created
+
+        - name: ingredient.updated
+          exchange: ingredient.exchange
+          routing_key: ingredient.evt.ingredient.updated
+
+capabilities:
+  - ingredient.create
+  - ingredient.get
+  - ingredient.list
+
+architecture:
+  pattern: hexagonal
+  ports:
+    api: input
+    cli: input
+    rabbitmq.commands: input
+    rabbitmq.events: output
+    logger: output
+    filesystem: output
+
+data:
+  inputs:
+    - name: ingredient
+      format: text
+
+  outputs:
+    - name: ingredient
+      format: csv
+
+  storage:
+    type: filesystem
+    location: assets/ingredients.csv
+
+configuration:
+  api:
+    - API_HOST
+    - API_PORT
+
+  rabbitmq:
+    - RABBITMQ_HOST
+    - RABBITMQ_PORT
+    - RABBITMQ_EXCHANGE_NAME
+    - RABBITMQ_QUEUE_COMMANDS
+    - RABBITMQ_QUEUE_EVENTS
+
+guarantees:
+  coverage_min: 80
+  typing: partial
+  security_scanned: true
+  ci_enforced: true
